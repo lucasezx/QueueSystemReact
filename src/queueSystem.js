@@ -22,7 +22,7 @@ class QueueSystem {
     if (!this.user) {
       throw new Error("User name is required to request a ticket");
     }
-  
+
     const ticketNumber = this.sections[section]++;
     const newTicket = {
       user: this.user,
@@ -30,20 +30,19 @@ class QueueSystem {
       section,
       priority: isPriority,
     };
-  
+
     this.queue.push(newTicket);
-  
+
     const positionInSection = this.queue.filter(
       (item) => item.section === section
     ).length;
-  
+
     return `${
       isPriority ? "Priority" : ""
     } Ticket for ${section} requested for ${
       this.user
     }, position ${positionInSection} in queue`;
   }
-  
 
   showQueue(section) {
     return this.queue.filter((item) => item.section === section);
@@ -82,7 +81,7 @@ class QueueSystem {
   callNextTicket(section) {
     const sectionQueue = this.queue.filter((item) => item.section === section);
     if (sectionQueue.length === 0) {
-      console.log(`There are no tickets in the ${section} queue`);
+      throw new Error(`There are no tickets in the ${section} queue`);
     }
 
     const nextTicketIndex = sectionQueue.findIndex((item) => item.priority);
@@ -98,7 +97,7 @@ class QueueSystem {
     if (this.history.length === 0) {
       return "No tickets have been called yet";
     }
-    return this.history.slice(-3);
+    return this.history.slice(Math.max(this.history.length - 10, 0));
   }
 
   emptyQueue() {
@@ -109,11 +108,17 @@ class QueueSystem {
       acc[section] = 1;
       return acc;
     }, {});
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("queueData");
+    }
   }
 
   static saveQueue(queue) {
+    if (!queue) {
+      return;
+    }
     const dataToSave = {
-      user: queue.user,
+      user: "",
       queue: queue.queue.filter(
         (item) => item.user && item.ticket && item.section
       ),
@@ -124,30 +129,36 @@ class QueueSystem {
         return acc;
       }, {}),
     };
-    localStorage.setItem("queueData", JSON.stringify(dataToSave));
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("queueData", JSON.stringify(dataToSave));
+    }
   }
 
   static loadQueue() {
-    const data = localStorage.getItem("queueData");
-    if (data) {
-      const parsedData = JSON.parse(data);
+    if (typeof window !== "undefined") {
+      const data = localStorage.getItem("queueData");
+      if (data) {
+        const parsedData = JSON.parse(data);
 
-      const queueSystem = new QueueSystem(parsedData.user || "");
+        const queueSystem = new QueueSystem(parsedData.user || "");
 
-      queueSystem.queue = (parsedData.queue || []).filter(
-        (item) => item.user && item.ticket && item.section
-      );
-      queueSystem.tickets = parsedData.tickets || [];
-      queueSystem.history = (parsedData.history || []).filter(
-        (item) => item.user && item.ticket
-      );
-      queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
-        acc[section] = parsedData.sections?.[section] || 1;
-        return acc;
-      }, {});
+        queueSystem.queue = (parsedData.queue || []).filter(
+          (item) => item.user && item.ticket && item.section
+        );
+        queueSystem.tickets = parsedData.tickets || [];
+        queueSystem.history = (parsedData.history || []).filter(
+          (item) => item.user && item.ticket
+        );
+        queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
+          acc[section] = parsedData.sections?.[section] || 1;
+          return acc;
+        }, {});
 
-      return queueSystem;
+        return queueSystem;
+      }
     }
+
     return new QueueSystem();
   }
 }

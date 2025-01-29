@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { QueueSystem, SECTION_NAMES } from "./queueSystem";
+import { QueueSystem, SECTION_NAMES } from "./queueSystem.js";
 import "./index.css";
+
+
 
 function App() {
   const [queueSystem] = useState(QueueSystem.loadQueue());
@@ -46,11 +48,9 @@ function App() {
     setMessage("Queue has been emptied.");
   };
 
-
   const showQueue = () => {
     setQueue(queueSystem.showQueue(section));
   };
-  
 
   return (
     <div>
@@ -83,6 +83,7 @@ function App() {
       <pre>{JSON.stringify(queue, null, 2)}</pre>
     </div>
   );
+  
 }
 
 export default App;
