@@ -3,7 +3,6 @@ import { QueueSystem, SECTION_NAMES } from "./queueSystem.js";
 import "./index.css";
 
 
-
 function App() {
   const [queueSystem] = useState(QueueSystem.loadQueue());
   const [user, setUser] = useState(queueSystem.user || "");
@@ -52,6 +51,17 @@ function App() {
     setQueue(queueSystem.showQueue(section));
   };
 
+  const averageWaitTime = () => {
+    const averageWaitTimes = queueSystem.averageWaitTimeForAll();
+    setMessage(
+      `Average wait times for all sections: ${JSON.stringify(
+        averageWaitTimes,
+        null,
+        2
+      )}`
+    );
+  }
+
   return (
     <div>
       <h1>Queue System</h1>
@@ -75,6 +85,8 @@ function App() {
       <button onClick={callNextTicket}>Call Next Ticket</button>
       <button onClick={emptyQueue}>Empty Queue</button>
       <button onClick={showQueue}>Show Queue</button>
+      <button onClick={averageWaitTime}>Average Wait Time</button>
+
 
       <h2>Last Called Tickets</h2>
       <pre>{JSON.stringify(calledTickets, null, 2)}</pre>

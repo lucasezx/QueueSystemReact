@@ -1,3 +1,23 @@
+import { resolve } from "path";
+
+if (typeof global.self === "undefined") {
+  global.self = global;
+}
+
+const __dirname = resolve();
+const filePath = resolve(__dirname, "queueData.json");
+
+let fs;
+if (typeof window === "undefined") {
+  import("fs").then((nodeFs) => {
+    fs = nodeFs.default || nodeFs;
+  });
+} else {
+  import("browserify-fs").then((browserifyFs) => {
+    fs = browserifyFs.default || browserifyFs;
+  });
+}
+
 const SECTION_NAMES = Object.freeze([
   "Bakery",
   "Butcher",
@@ -69,10 +89,10 @@ class QueueSystem {
     });
 
     const sectionAverages = {
-      Bakery: sectionWaitTimes.Bakery / sectionCount.Bakery,
-      Butcher: sectionWaitTimes.Butcher / sectionCount.Butcher,
-      Fishmonger: sectionWaitTimes.Fishmonger / sectionCount.Fishmonger,
-      Deli: sectionWaitTimes.Deli / sectionCount.Deli,
+      ...SECTION_NAMES.reduce((acc, section) => {
+        acc[section] = sectionWaitTimes[section] / sectionCount[section];
+        return acc;
+      }, {}),
     };
 
     return sectionAverages;
@@ -110,6 +130,8 @@ class QueueSystem {
     }, {});
     if (typeof window !== "undefined") {
       localStorage.removeItem("queueData");
+    } else if (fs) {
+      fs.unlinkSync(filePath);
     }
   }
 
@@ -132,6 +154,16 @@ class QueueSystem {
 
     if (typeof window !== "undefined") {
       localStorage.setItem("queueData", JSON.stringify(dataToSave));
+    } else if (fs) {
+      try {
+        fs.writeFileSync(
+          filePath,
+          JSON.stringify(dataToSave, null, 2),
+          "utf-8"
+        );
+      } catch (error) {
+        console.error("Error saving data:", error);
+      }
     }
   }
 
@@ -157,8 +189,30 @@ class QueueSystem {
 
         return queueSystem;
       }
-    }
+    } else if (fs) {
+      try {
+        const data = fs.readFileSync(filePath, "utf-8");
+        const parsedData = JSON.parse(data);
 
+        const queueSystem = new QueueSystem(parsedData.user || "");
+
+        queueSystem.queue = (parsedData.queue || []).filter(
+          (item) => item.user && item.ticket && item.section
+        );
+        queueSystem.tickets = parsedData.tickets || [];
+        queueSystem.history = (parsedData.history || []).filter(
+          (item) => item.user && item.ticket
+        );
+        queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
+          acc[section] = parsedData.sections?.[section] || 1;
+          return acc;
+        }, {});
+
+        return queueSystem;
+      } catch (error) {
+        return new QueueSystem();
+      }
+    }
     return new QueueSystem();
   }
 }
