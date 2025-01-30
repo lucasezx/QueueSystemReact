@@ -1,23 +1,3 @@
-import { resolve } from "path";
-
-if (typeof global.self === "undefined") {
-  global.self = global;
-}
-
-const __dirname = resolve();
-const filePath = resolve(__dirname, "queueData.json");
-
-let fs;
-if (typeof window === "undefined") {
-  import("fs").then((nodeFs) => {
-    fs = nodeFs.default || nodeFs;
-  });
-} else {
-  import("browserify-fs").then((browserifyFs) => {
-    fs = browserifyFs.default || browserifyFs;
-  });
-}
-
 const SECTION_NAMES = Object.freeze([
   "Bakery",
   "Butcher",
@@ -47,7 +27,7 @@ class QueueSystem {
     const newTicket = {
       user: this.user,
       ticket: ticketNumber,
-      section,
+      section: section,
       priority: isPriority,
     };
 
@@ -114,7 +94,7 @@ class QueueSystem {
   }
 
   showLastCalledTickets() {
-    if (this.history.length === 0) {
+    if (!this.history) {
       return "No tickets have been called yet";
     }
     return this.history.slice(Math.max(this.history.length - 10, 0));
@@ -128,92 +108,30 @@ class QueueSystem {
       acc[section] = 1;
       return acc;
     }, {});
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("queueData");
-    } else if (fs) {
-      fs.unlinkSync(filePath);
-    }
+    this.user = "";
   }
 
-  static saveQueue(queue) {
-    if (!queue) {
-      return;
+  static loadQueue(data) {
+    if (!data) {
+      return new QueueSystem();
     }
-    const dataToSave = {
-      user: "",
-      queue: queue.queue.filter(
-        (item) => item.user && item.ticket && item.section
-      ),
-      tickets: queue.tickets,
-      history: queue.history.filter((item) => item.user && item.ticket),
-      sections: SECTION_NAMES.reduce((acc, section) => {
-        acc[section] = queue.sections[section] || 1;
-        return acc;
-      }, {}),
-    };
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("queueData", JSON.stringify(dataToSave));
-    } else if (fs) {
-      try {
-        fs.writeFileSync(
-          filePath,
-          JSON.stringify(dataToSave, null, 2),
-          "utf-8"
-        );
-      } catch (error) {
-        console.error("Error saving data:", error);
-      }
-    }
-  }
+    const parsedData = JSON.parse(data);
+    const queueSystem = new QueueSystem(parsedData.user || "");
 
-  static loadQueue() {
-    if (typeof window !== "undefined") {
-      const data = localStorage.getItem("queueData");
-      if (data) {
-        const parsedData = JSON.parse(data);
+    queueSystem.queue = (parsedData.queue || []).filter(
+      (item) => item.user && item.ticket && item.section
+    );
+    queueSystem.tickets = parsedData.tickets || [];
+    queueSystem.history = (parsedData.history || []).filter(
+      (item) => item.user && item.ticket
+    );
+    queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
+      acc[section] = parsedData.sections?.[section] || 1;
+      return acc;
+    }, {});
 
-        const queueSystem = new QueueSystem(parsedData.user || "");
-
-        queueSystem.queue = (parsedData.queue || []).filter(
-          (item) => item.user && item.ticket && item.section
-        );
-        queueSystem.tickets = parsedData.tickets || [];
-        queueSystem.history = (parsedData.history || []).filter(
-          (item) => item.user && item.ticket
-        );
-        queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
-          acc[section] = parsedData.sections?.[section] || 1;
-          return acc;
-        }, {});
-
-        return queueSystem;
-      }
-    } else if (fs) {
-      try {
-        const data = fs.readFileSync(filePath, "utf-8");
-        const parsedData = JSON.parse(data);
-
-        const queueSystem = new QueueSystem(parsedData.user || "");
-
-        queueSystem.queue = (parsedData.queue || []).filter(
-          (item) => item.user && item.ticket && item.section
-        );
-        queueSystem.tickets = parsedData.tickets || [];
-        queueSystem.history = (parsedData.history || []).filter(
-          (item) => item.user && item.ticket
-        );
-        queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
-          acc[section] = parsedData.sections?.[section] || 1;
-          return acc;
-        }, {});
-
-        return queueSystem;
-      } catch (error) {
-        return new QueueSystem();
-      }
-    }
-    return new QueueSystem();
+    return queueSystem;
   }
 }
 

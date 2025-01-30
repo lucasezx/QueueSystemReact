@@ -2,20 +2,53 @@ import React, { useState, useEffect } from "react";
 import { QueueSystem, SECTION_NAMES } from "./queueSystem.js";
 import "./index.css";
 
+function saveQueue(queue) {
+  if (!queue) return;
+  const dataToSave = {
+    user: queue.user,
+    queue: queue.queue.filter(
+      (item) => item.user && item.ticket && item.section
+    ),
+    tickets: queue.tickets,
+    history: queue.history.filter((item) => item.user && item.ticket),
+    sections: SECTION_NAMES.reduce((acc, section) => {
+      acc[section] = queue.sections[section] || 1;
+      return acc;
+    }, {}),
+    lastCalledTickets: queue.showLastCalledTickets(),
+  };
+
+  localStorage.setItem("queueData", JSON.stringify(dataToSave));
+}
+
+function loadQueue() {
+  const data = localStorage.getItem("queueData");
+  const queueSystem = QueueSystem.loadQueue(data);
+
+  if (data) {
+    const parsedData = JSON.parse(data);
+    queueSystem.lastCalledTickets = parsedData.lastCalledTickets || [];
+  }
+
+  return queueSystem;
+}
 
 function App() {
-  const [queueSystem] = useState(QueueSystem.loadQueue());
+  const [queueSystem] = useState(() => loadQueue());
   const [user, setUser] = useState(queueSystem.user || "");
   const [section, setSection] = useState(SECTION_NAMES[0]);
   const [queue, setQueue] = useState(queueSystem.queue);
   const [calledTickets, setCalledTickets] = useState(
-    queueSystem.showLastCalledTickets()
+    queueSystem.lastCalledTickets || []
   );
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    QueueSystem.saveQueue(queueSystem);
-  }, [queueSystem]);
+    if (user) {
+      queueSystem.user = user;
+      saveQueue(queueSystem);
+    }
+  }, [user, queueSystem]);
 
   const requestTicket = (isPriority = false) => {
     if (!user) {
@@ -27,14 +60,22 @@ function App() {
     const message = queueSystem.requestTicket(section, isPriority);
     setQueue([...queueSystem.queue]);
     setMessage(message);
+
+    saveQueue(queueSystem);
   };
 
   const callNextTicket = () => {
     try {
       const message = queueSystem.callNextTicket(section);
       setQueue([...queueSystem.queue]);
-      setCalledTickets([...queueSystem.showLastCalledTickets()]);
+      const calledTickets = queueSystem.showLastCalledTickets();
+      setCalledTickets(calledTickets);
       setMessage(message);
+
+      setTimeout(() => {
+
+      saveQueue(queueSystem);
+    }, 0);
     } catch (error) {
       setMessage(error.message);
     }
@@ -44,7 +85,9 @@ function App() {
     queueSystem.emptyQueue();
     setQueue([]);
     setCalledTickets([]);
-    setMessage("Queue has been emptied.");
+    setMessage("Queue has been emptied");
+
+    saveQueue(queueSystem);
   };
 
   const showQueue = () => {
@@ -60,7 +103,7 @@ function App() {
         2
       )}`
     );
-  }
+  };
 
   return (
     <div>
@@ -87,7 +130,6 @@ function App() {
       <button onClick={showQueue}>Show Queue</button>
       <button onClick={averageWaitTime}>Average Wait Time</button>
 
-
       <h2>Last Called Tickets</h2>
       <pre>{JSON.stringify(calledTickets, null, 2)}</pre>
       <p>{message}</p>
@@ -95,7 +137,6 @@ function App() {
       <pre>{JSON.stringify(queue, null, 2)}</pre>
     </div>
   );
-  
 }
 
 export default App;
