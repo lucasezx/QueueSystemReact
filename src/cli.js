@@ -8,16 +8,7 @@ const filePath = path.join(process.cwd(), 'queueData.json');
 
 function saveQueue(queueSystem) {
   if (!queueSystem) return;
-  const dataToSave = {
-    user: queueSystem.user,
-    queue: queueSystem.queue.filter((item) => item.user && item.ticket && item.section),
-    tickets: queueSystem.tickets,
-    history: queueSystem.history.filter((item) => item.user && item.ticket),
-    sections: SECTION_NAMES.reduce((acc, section) => {
-      acc[section] = queueSystem.sections[section] || 1;
-      return acc;
-    }, {}),
-  };
+  const dataToSave = queueSystem.backedUpQueue();
 
   try {
     fs.writeFileSync(filePath, JSON.stringify(dataToSave));

@@ -18,6 +18,33 @@ class QueueSystem {
     }, {});
   }
 
+  static loadQueueSystem(queue) {
+    const parsedData  = JSON.parse(queue);
+    const queueSystem = new QueueSystem(parsedData.user || "");
+
+    queueSystem.queue = (parsedData.queue || []).filter((item) => item.user && item.ticket && item.section);
+    queueSystem.tickets = parsedData.tickets || [];
+    queueSystem.history = (parsedData.history || []).filter((item) => item.user && item.ticket);
+    queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
+      acc[section] = parsedData.sections?.[section] || 1;
+      return acc;
+    }, {});
+    return queueSystem;
+     }
+
+  backedUpQueue() {
+    return {
+      user: this.user,
+      queue: this.queue.filter((item) => item.user && item.ticket && item.section),
+      tickets: this.tickets,
+      history: this.history.filter((item) => item.user && item.ticket),
+      sections: SECTION_NAMES.reduce((acc, section) => {
+        acc[section] = this.sections[section] || 1;
+        return acc;
+      }, {}),
+    };
+  }
+
   requestTicket(section, isPriority = false) {
     if (!this.user) {
       throw new Error("User name is required to request a ticket");

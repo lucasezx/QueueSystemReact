@@ -1,1 +1,1 @@
-{"user":"","queue":[],"tickets":[],"history":[],"sections":{"Bakery":1,"Butcher":1,"Fishmonger":1,"Deli":1,"Checkout":1}}
+{"user":"Antonio","queue":[{"user":"José","ticket":2,"section":"Butcher","priority":false},{"user":"Marcos","ticket":2,"section":"Bakery","priority":false}],"tickets":[],"history":[{"user":"Pedro","ticket":1,"section":"Bakery","priority":true},{"user":"Lucas","ticket":1,"section":"Butcher","priority":false},{"user":"Antonio","ticket":3,"section":"Butcher","priority":true}],"sections":{"Bakery":3,"Butcher":4,"Fishmonger":1,"Deli":1,"Checkout":1}}

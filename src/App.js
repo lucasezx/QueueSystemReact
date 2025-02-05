@@ -4,39 +4,23 @@ import "./index.css";
 
 function saveQueue(queue) {
   if (!queue) return;
-  const dataToSave = {
-    user: queue.user,
-    queue: queue.queue.filter(
-      (item) => item.user && item.ticket && item.section
-    ),
-    tickets: queue.tickets,
-    history: queue.history.filter((item) => item.user && item.ticket),
-    sections: SECTION_NAMES.reduce((acc, section) => {
-      acc[section] = queue.sections[section] || 1;
-      return acc;
-    }, {}),
-    lastCalledTickets: queue.showLastCalledTickets(),
-  };
+  const dataToSave = queue.backedUpQueue();
+  dataToSave.lastCalledTickets = queue.showLastCalledTickets;
 
   localStorage.setItem("queueData", JSON.stringify(dataToSave));
 }
 
 function loadQueue() {
   const data = localStorage.getItem("queueData");
-  const queueSystem = QueueSystem.loadQueue(data);
-
-  if (data) {
-    const parsedData = JSON.parse(data);
-    queueSystem.lastCalledTickets = parsedData.lastCalledTickets || [];
-  }
-
-  return queueSystem;
+  return data ? QueueSystem.loadQueueSystem(data) : new QueueSystem("");
 }
 
 function App() {
+  const [averageTime, setAverageTime] = useState("");
+  const [clientSection, setClientSection] = useState("");
+  const [customerSection, setCustomerSection] = useState("");
   const [queueSystem] = useState(() => loadQueue());
   const [user, setUser] = useState(queueSystem.user || "");
-  const [section, setSection] = useState(SECTION_NAMES[0]);
   const [queue, setQueue] = useState(queueSystem.queue);
   const [calledTickets, setCalledTickets] = useState(
     queueSystem.lastCalledTickets || []
@@ -44,11 +28,12 @@ function App() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (user) {
-      queueSystem.user = user;
-      saveQueue(queueSystem);
+    if (SECTION_NAMES.length > 0) {
+      setClientSection(SECTION_NAMES[0]);
+      setCustomerSection(SECTION_NAMES[0]);
     }
-  }, [user, queueSystem]);
+    setCalledTickets(queueSystem.showLastCalledTickets());
+  }, [queueSystem]);
 
   const requestTicket = (isPriority = false) => {
     if (!user) {
@@ -57,7 +42,7 @@ function App() {
     }
 
     queueSystem.user = user;
-    const message = queueSystem.requestTicket(section, isPriority);
+    const message = queueSystem.requestTicket(clientSection, isPriority);
     setQueue([...queueSystem.queue]);
     setMessage(message);
 
@@ -66,16 +51,15 @@ function App() {
 
   const callNextTicket = () => {
     try {
-      const message = queueSystem.callNextTicket(section);
+      const message = queueSystem.callNextTicket(customerSection);
       setQueue([...queueSystem.queue]);
       const calledTickets = queueSystem.showLastCalledTickets();
       setCalledTickets(calledTickets);
       setMessage(message);
 
       setTimeout(() => {
-
-      saveQueue(queueSystem);
-    }, 0);
+        saveQueue(queueSystem);
+      }, 0);
     } catch (error) {
       setMessage(error.message);
     }
@@ -90,13 +74,9 @@ function App() {
     saveQueue(queueSystem);
   };
 
-  const showQueue = () => {
-    setQueue(queueSystem.showQueue(section));
-  };
-
   const averageWaitTime = () => {
     const averageWaitTimes = queueSystem.averageWaitTimeForAll();
-    setMessage(
+    setAverageTime(
       `Average wait times for all sections: ${JSON.stringify(
         averageWaitTimes,
         null,
@@ -106,35 +86,79 @@ function App() {
   };
 
   return (
-    <div>
-      <h1>Queue System</h1>
-      <input
-        type="text"
-        placeholder="Enter your name"
-        value={user}
-        onChange={(e) => setUser(e.target.value)}
-      />
-      <select value={section} onChange={(e) => setSection(e.target.value)}>
-        {SECTION_NAMES.map((section) => (
-          <option key={section} value={section}>
-            {section}
-          </option>
-        ))}
-      </select>
-      <button onClick={() => requestTicket(false)}>Request Ticket</button>
-      <button onClick={() => requestTicket(true)}>
-        Request Priority Ticket
-      </button>
-      <button onClick={callNextTicket}>Call Next Ticket</button>
-      <button onClick={emptyQueue}>Empty Queue</button>
-      <button onClick={showQueue}>Show Queue</button>
-      <button onClick={averageWaitTime}>Average Wait Time</button>
+    <div style={{ display: "flex", justifyContent: "space-around" }}>
+      <div>
+        <h2>Client</h2>
+        <input
+          type="text"
+          placeholder="Enter your name"
+          value={user}
+          onChange={(e) => setUser(e.target.value)}
+        />
+        <select
+          value={clientSection}
+          onChange={(e) => setClientSection(e.target.value)}
+        >
+          {SECTION_NAMES.map((section) => (
+            <option key={section} value={section}>
+              {section}
+            </option>
+          ))}
+        </select>
+        <button onClick={() => requestTicket(false)}>Request Ticket</button>
+        <button onClick={() => requestTicket(true)}>
+          Request Priority Ticket
+        </button>
 
-      <h2>Last Called Tickets</h2>
-      <pre>{JSON.stringify(calledTickets, null, 2)}</pre>
-      <p>{message}</p>
-      <h2>Queue for {section}</h2>
-      <pre>{JSON.stringify(queue, null, 2)}</pre>
+        <h3>Queue for {clientSection}</h3>
+        <pre>
+          {JSON.stringify(
+            queue.filter((ticket) => ticket.section === clientSection),
+            null,
+            2
+          )}
+        </pre>
+      </div>
+
+      <div>
+        <h2>Customer</h2>
+        <select
+          value={customerSection}
+          onChange={(e) => setCustomerSection(e.target.value)}
+        >
+          {SECTION_NAMES.map((section) => (
+            <option key={section} value={section}>
+              {section}
+            </option>
+          ))}
+        </select>
+        <button onClick={callNextTicket}>Call Next Ticket</button>
+        <button onClick={emptyQueue}>Empty Queue</button>
+
+        <h3>Queue for {customerSection}</h3>
+        <pre>
+          {JSON.stringify(
+            queue.filter((ticket) => ticket.section === customerSection),
+            null,
+            2
+          )}
+        </pre>
+
+        <h3>Last Called Tickets for {customerSection}</h3>
+        <pre>
+          {JSON.stringify(
+            calledTickets.filter(
+              (ticket) => ticket.section === customerSection
+            ),
+            null,
+            2
+          )}
+        </pre>
+
+        <button onClick={averageWaitTime}>Average Wait Time</button>
+        <p>{message}</p>
+        <p>{averageTime}</p>
+      </div>
     </div>
   );
 }
