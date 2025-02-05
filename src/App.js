@@ -15,6 +15,21 @@ function loadQueue() {
   return data ? QueueSystem.loadQueueSystem(data) : new QueueSystem("");
 }
 
+function formatTicket(ticket) {
+  return `Name: ${ticket.user}\nTicket: ${ticket.ticket}\nPriority: ${ticket.priority ? "Yes" : "No"}\n----------------------`;
+}
+
+function formatAverageWaitTimes(averageWaitTimes) {
+  return Object.entries(averageWaitTimes)
+    .map(
+      ([section, average]) =>
+        `${section}: ${
+          average !== null && !isNaN(average) ? average : 0
+        } minutes`
+    )
+    .join("\n");
+}
+
 function App() {
   const [averageTime, setAverageTime] = useState("");
   const [clientSection, setClientSection] = useState("");
@@ -77,10 +92,8 @@ function App() {
   const averageWaitTime = () => {
     const averageWaitTimes = queueSystem.averageWaitTimeForAll();
     setAverageTime(
-      `Average wait times for all sections: ${JSON.stringify(
-        averageWaitTimes,
-        null,
-        2
+      `Average wait times for all sections: \n${formatAverageWaitTimes(
+        averageWaitTimes
       )}`
     );
   };
@@ -112,11 +125,10 @@ function App() {
 
         <h3>Queue for {clientSection}</h3>
         <pre>
-          {JSON.stringify(
-            queue.filter((ticket) => ticket.section === clientSection),
-            null,
-            2
-          )}
+          {queue
+            .filter((ticket) => ticket.section === clientSection)
+            .map(formatTicket)
+            .join("\n\n")}
         </pre>
       </div>
 
@@ -131,33 +143,39 @@ function App() {
               {section}
             </option>
           ))}
+          
         </select>
         <button onClick={callNextTicket}>Call Next Ticket</button>
         <button onClick={emptyQueue}>Empty Queue</button>
+        
+        <p>{message}</p>
 
         <h3>Queue for {customerSection}</h3>
         <pre>
-          {JSON.stringify(
-            queue.filter((ticket) => ticket.section === customerSection),
-            null,
-            2
-          )}
+          {queue
+            .filter((ticket) => ticket.section === customerSection)
+            .map(formatTicket)
+            .join("\n\n")}
         </pre>
 
         <h3>Last Called Tickets for {customerSection}</h3>
         <pre>
-          {JSON.stringify(
-            calledTickets.filter(
-              (ticket) => ticket.section === customerSection
-            ),
-            null,
-            2
-          )}
+          {calledTickets
+            .filter((ticket) => ticket.section === customerSection)
+            .map(formatTicket)
+            .join("\n\n")}
         </pre>
 
         <button onClick={averageWaitTime}>Average Wait Time</button>
-        <p>{message}</p>
-        <p>{averageTime}</p>
+        <pre
+          style={{
+            whiteSpace: "pre-wrap",
+            wordWrap: `break-word`,
+            maxWidth: `350px`,
+          }}
+        >
+          {averageTime}
+        </pre>
       </div>
     </div>
   );

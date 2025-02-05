@@ -66,9 +66,9 @@ class QueueSystem {
 
     return `${
       isPriority ? "Priority" : ""
-    } Ticket for ${section} requested for ${
+    } Ticket requested for ${
       this.user
-    }, position ${positionInSection} in queue`;
+    }, position ${positionInSection}`;
   }
 
   showQueue(section) {
