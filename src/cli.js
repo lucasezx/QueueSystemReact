@@ -1,27 +1,8 @@
 import pkg from "enquirer";
 const { Select, Input } = pkg;
-import { QueueSystem, SECTION_NAMES } from "./queueSystem.js";
-import path from "path";
-import fs from "fs";
+import { SECTION_NAMES } from "./queueSystem.js";
 
-const filePath = path.join(process.cwd(), 'queueData.json');
-
-function saveQueue(queueSystem) {
-  if (!queueSystem) return;
-  const dataToSave = queueSystem.backedUpQueue();
-
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(dataToSave));
-  } catch (error) {
-    console.error("Error saving queue file:", error);
-  }
-}
-
-async function loadQueue() {
-const data = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : null;
-return QueueSystem.loadQueue(data);
-}
-
+const BASE_URL = "http://localhost:3001";
 
 async function selectSection() {
   const sectionPrompt = new Select({
@@ -31,7 +12,8 @@ async function selectSection() {
   });
   return await sectionPrompt.run();
 }
-async function mainMenu(queueSystem) {
+
+async function mainMenu() {
   const mainMenuPrompt = new Select({
     name: "queue",
     message: "Select an option",
@@ -39,10 +21,10 @@ async function mainMenu(queueSystem) {
       "Request Ticket",
       "Request Priority Ticket",
       "Call Next Ticket",
-      "Average Wait Time",
-      "Show Last Called Tickets",
       "Empty Queue",
       "Show Queue",
+      "Show Last Called",
+      "Average Wait Time",
       "Exit",
     ],
   });
@@ -57,57 +39,119 @@ async function mainMenu(queueSystem) {
   if (["Request Ticket", "Request Priority Ticket"].includes(answer)) {
     const usernamePrompt = new Input({
       message: "Enter your name",
-      initial: queueSystem.user,
     });
-
     const userName = await usernamePrompt.run();
-    queueSystem.user = userName;
-
     if (!userName) {
       console.log("User name is required to request a ticket");
       return;
     }
-
     const section = await selectSection();
     const isPriority = answer === "Request Priority Ticket";
-    console.log(queueSystem.requestTicket(section, isPriority));
+
+    try {
+      const response = await fetch(`${BASE_URL}/queues/${section}/tickets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: userName, isPriority }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(data.message);
+    } catch (error) {
+      console.error("Error:", error.message);
+    }
   }
 
   if (answer === "Call Next Ticket") {
     const section = await selectSection();
-    console.log(queueSystem.callNextTicket(section));
-  }
+    try {
+      const response = await fetch(`${BASE_URL}/queues/${section}/call`, {
+        method: "POST",
+      });
 
-  if (answer === "Average Wait Time") {
-    const averageWaitTimes = queueSystem.averageWaitTimeForAll();
-    console.log("The average wait for each tickets is:");
-    for (const [section, waitTime] of Object.entries(averageWaitTimes)) {
-      console.log(`${section}: ${waitTime.toFixed(2)} minutes`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(data.message);
+    } catch (error) {
+      console.error("Error:", error.message);
     }
   }
 
-  if (answer === "Show Last Called Tickets") {
-    console.log(JSON.stringify(queueSystem.showLastCalledTickets(), null, 2));
-  }
-
   if (answer === "Empty Queue") {
-    queueSystem.emptyQueue();
-    console.log("Queue has been emptied.");
+    try {
+      const response = await fetch(`${BASE_URL}/queues/clear`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      console.log("Queue cleared successfully");
+    } catch (error) {
+      console.error("Error:", error.message);
+    }
   }
 
   if (answer === "Show Queue") {
     const section = await selectSection();
-    console.log(JSON.stringify(queueSystem.showQueue(section), null, 2));
+    try {
+      const response = await fetch(`${BASE_URL}/queues/${section}/tickets`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(JSON.stringify(data.tickets, null, 2));
+    } catch (error) {
+      console.error("Error:", error.message);
+    }
   }
 
-  saveQueue(queueSystem);
+  if (answer === "Show Last Called") {
+    try {
+      const response = await fetch(`${BASE_URL}/queues/last-called`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log("Last Called Tickets:");
+      console.log(JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error("Error:", error.message);
+    }
+  }
+
+  if (answer === "Average Wait Time") {
+    try {
+      const response = await fetch(`${BASE_URL}/queues/average-wait-time`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log("Average Wait Times:");
+      for (const section in data) {
+        console.log(`${section}: ${Number(data[section]).toFixed(2)} minutes`);
+      }
+    } catch (error) {
+      console.error("Error:", error.message);
+    }
+  }
+
   return "";
 }
 
 (async () => {
   let code;
-  const queueSystem = await loadQueue();
   do {
-    code = await mainMenu(queueSystem);
+    code = await mainMenu();
   } while (code !== "Exit");
 })();

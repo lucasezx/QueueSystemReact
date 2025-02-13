@@ -19,23 +19,29 @@ class QueueSystem {
   }
 
   static loadQueueSystem(queue) {
-    const parsedData  = JSON.parse(queue);
+    const parsedData = JSON.parse(queue);
     const queueSystem = new QueueSystem(parsedData.user || "");
 
-    queueSystem.queue = (parsedData.queue || []).filter((item) => item.user && item.ticket && item.section);
+    queueSystem.queue = (parsedData.queue || []).filter(
+      (item) => item.user && item.ticket && item.section
+    );
     queueSystem.tickets = parsedData.tickets || [];
-    queueSystem.history = (parsedData.history || []).filter((item) => item.user && item.ticket);
+    queueSystem.history = (parsedData.history || []).filter(
+      (item) => item.user && item.ticket
+    );
     queueSystem.sections = SECTION_NAMES.reduce((acc, section) => {
       acc[section] = parsedData.sections?.[section] || 1;
       return acc;
     }, {});
     return queueSystem;
-     }
+  }
 
   backedUpQueue() {
     return {
       user: this.user,
-      queue: this.queue.filter((item) => item.user && item.ticket && item.section),
+      queue: this.queue.filter(
+        (item) => item.user && item.ticket && item.section
+      ),
       tickets: this.tickets,
       history: this.history.filter((item) => item.user && item.ticket),
       sections: SECTION_NAMES.reduce((acc, section) => {
@@ -45,30 +51,50 @@ class QueueSystem {
     };
   }
 
-  requestTicket(section, isPriority = false) {
-    if (!this.user) {
+  requestTicket(section, user, isPriority = false) {
+    if (!user) {
       throw new Error("User name is required to request a ticket");
     }
 
     const ticketNumber = this.sections[section]++;
     const newTicket = {
-      user: this.user,
+      user: user,
       ticket: ticketNumber,
       section: section,
       priority: isPriority,
     };
 
-    this.queue.push(newTicket);
+    if (isPriority) {
+      let lastPriorityIndex = -1;
+      for (let i = 0; i < this.queue.length; i++) {
+        const ticket = this.queue[i];
+        if (ticket.section === section && ticket.priority) {
+          lastPriorityIndex = i;
+        }
+      }
+      if (lastPriorityIndex !== -1) {
+        this.queue.splice(lastPriorityIndex + 1, 0, newTicket);
+      } else {
+        const firstNonPriorityIndex = this.queue.findIndex(
+          (ticket) => ticket.section === section && !ticket.priority
+        );
+        if (firstNonPriorityIndex !== -1) {
+          this.queue.splice(firstNonPriorityIndex, 0, newTicket);
+        } else {
+          this.queue.push(newTicket);
+        }
+      }
+    } else {
+      this.queue.push(newTicket);
+    }
 
     const positionInSection = this.queue.filter(
       (item) => item.section === section
     ).length;
 
     return `${
-      isPriority ? "Priority" : ""
-    } Ticket requested for ${
-      this.user
-    }, position ${positionInSection}`;
+      isPriority ? "Priority " : ""
+    }Ticket requested for ${user}, position ${positionInSection}`;
   }
 
   showQueue(section) {
@@ -111,13 +137,14 @@ class QueueSystem {
       throw new Error(`There are no tickets in the ${section} queue`);
     }
 
-    const nextTicketIndex = sectionQueue.findIndex((item) => item.priority);
-    const nextTicket =
-      nextTicketIndex === -1 ? sectionQueue[0] : sectionQueue[nextTicketIndex];
+    const nextTicket = sectionQueue[0];
 
-    this.queue = this.queue.filter((item) => item !== nextTicket);
+    const indexInGlobal = this.queue.indexOf(nextTicket);
+    if (indexInGlobal > -1) {
+      this.queue.splice(indexInGlobal, 1);
+    }
     this.history.push(nextTicket);
-    return `Next ticket for ${section} is ${nextTicket.ticket} for ${nextTicket.user}`;
+    return nextTicket;
   }
 
   showLastCalledTickets() {
@@ -163,3 +190,4 @@ class QueueSystem {
 }
 
 export { QueueSystem, SECTION_NAMES };
+export default QueueSystem;
