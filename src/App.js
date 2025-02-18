@@ -4,12 +4,20 @@ import "./index.css";
 
 const BASE_URL = "http://localhost:3001";
 
+const getQueueId = (sectionName) => {
+  const index = SECTION_NAMES.indexOf(sectionName);
+  if (index === -1) {
+    throw new Error(`Section ${sectionName} not found`);
+  }
+  return index + 1;
+};
+
 const formatTicket = (ticket) => {
-  if (!ticket || !ticket.user) {
+  if (!ticket || !ticket.name) {
     return "No tickets available";
   }
-  return `Name: ${ticket.user}\nTicket: ${ticket.ticket}\nPriority: ${
-    ticket.priority ? "Yes" : "No"
+  return `Name: ${ticket.name}\nTicket: ${ticket.sequence}\nPriority: ${
+    ticket.is_priority ? "Yes" : "No"
   }\n----------------------`;
 };
 
@@ -20,12 +28,13 @@ function App() {
   const [clientQueue, setClientQueue] = useState([]);
   const [customerQueue, setCustomerQueue] = useState([]);
   const [message, setMessage] = useState("");
-  const [user, setUser] = useState("");
+  const [name, setName] = useState("");
   const [lastCalled, setLastCalled] = useState([]);
 
   async function refreshQueue(section, isClient = true) {
     try {
-      const response = await fetch(`${BASE_URL}/queues/${section}/tickets`);
+      const queue_id = getQueueId(section);
+      const response = await fetch(`${BASE_URL}/queues/${queue_id}/tickets`);
       if (!response.ok) {
         throw new Error("Failed to fetch queue data");
       }
@@ -40,31 +49,28 @@ function App() {
     }
   }
 
-  async function requestTicket(isPriority = false) {
-    if (!user) {
+  async function requestTicket(is_priority = false) {
+    if (!name.trim()) {
       setMessage("User name is required to request a ticket");
       return;
     }
     try {
-      const response = await fetch(
-        `${BASE_URL}/queues/${clientSection}/tickets`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ user, isPriority }),
-        }
-      );
+      const queue_id = getQueueId(clientSection);
+      const response = await fetch(`${BASE_URL}/queues/${queue_id}/tickets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, is_priority }),
+      });
 
       if (!response.ok) {
-        throw new Error("Failed to request ticket");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to request ticket");
       }
 
       const data = await response.json();
-      const priorityText = isPriority ? "Priority " : "";
-      setMessage(`${priorityText}Ticket requested: ${data.message}`);
-      setMessage(data.message);
+      setMessage(`Ticket requested: ${data.message}`);
       await refreshQueue(clientSection);
     } catch (error) {
       setMessage(error.message);
@@ -73,12 +79,10 @@ function App() {
 
   async function callNextTicket() {
     try {
-      const response = await fetch(
-        `${BASE_URL}/queues/${customerSection}/call`,
-        {
-          method: "POST",
-        }
-      );
+      const queue_id = getQueueId(customerSection);
+      const response = await fetch(`${BASE_URL}/queues/${queue_id}/tickets/call`, {
+        method: "POST",
+      });
       if (!response.ok) {
         throw new Error("Failed to call next ticket");
       }
@@ -90,7 +94,6 @@ function App() {
       setMessage(error.message);
     }
   }
-  
 
   async function emptyQueue() {
     try {
@@ -140,8 +143,8 @@ function App() {
         <input
           type="text"
           placeholder="Enter your name"
-          value={user}
-          onChange={(e) => setUser(e.target.value)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
         />
         <select
           value={clientSection}

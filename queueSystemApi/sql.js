@@ -24,8 +24,8 @@ export const createTables = () => {
         sequence INTEGER NOT NULL,
         is_priority BOOLEAN,
         name TEXT NOT NULL,
-        PRIMARY KEY (queue_id, sequence),
-        FOREIGN KEY (queue_id) REFERENCES queue(id)
+        FOREIGN KEY (queue_id) REFERENCES queue(id),
+        PRIMARY KEY (queue_id, sequence)
       );`
     );
   });

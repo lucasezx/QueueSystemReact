@@ -18,59 +18,60 @@ const queueSystem = new QueueSystem("admin");
 if (!queueSystem.sections) {
   queueSystem.sections = {};
 }
-app.get("/queues/:queueId/tickets", async (req, res) => {
-  const queueId = req.params.queueId;
+
+app.get("/queues/:queue_id/tickets", async (req, res) => {
+  const queue_id = parseInt(req.params.queue_id, 10);
   try {
     const rows = await allQuery("SELECT * FROM ticket WHERE queue_id = ?", [
-      queueId,
+      queue_id,
     ]);
-    res.json({ queueId, tickets: rows });
+    res.json({ queue_id, tickets: rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/queues/:queueId/tickets", async (req, res) => {
-  const { user, isPriority } = req.body;
-  const queueId = req.params.queueId;
+app.post("/queues/:queue_id/tickets", async (req, res) => {
+  const queue_id = parseInt(req.params.queue_id, 10);
+  const { name, is_priority } = req.body;
 
   try {
-    if (!queueSystem.sections[queueId]) {
-      queueSystem.sections[queueId] = 1;
+    if (!queueSystem.sections[queue_id]) {
+      queueSystem.sections[queue_id] = 1;
     }
 
-    const ticketNumber = queueSystem.sections[queueId]++;
+    const ticketNumber = queueSystem.sections[queue_id]++;
     await runQuery(
       "INSERT INTO ticket (queue_id, sequence, is_priority, name) VALUES (?, ?, ?, ?)",
-      [queueId, ticketNumber, isPriority, user]
+      [queue_id, ticketNumber, is_priority, name]
     );
 
     const rows = await allQuery("SELECT * FROM ticket WHERE queue_id = ?", [
-      queueId,
+      queue_id,
     ]);
-    res.json({ message: `Ticket requested for ${user}`, queue: rows });
+    res.json({ message: `Ticket requested for ${name}`, queue: rows });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-app.post("/queues/:queueId/call", async (req, res) => {
-  const queueId = req.params.queueId;
+app.post("/queues/:queue_id/tickets/call", async (req, res) => {
+  const queue_id = parseInt(req.params.queue_id, 10);
 
   try {
-    const ticket = queueSystem.callNextTicket(queueId);
-    const { ticket: ticketNumber, user } = ticket;
+    const ticket = queueSystem.callNextTicket(queue_id);
+    const { ticket: ticketNumber, name } = ticket;
 
     await runQuery("DELETE FROM ticket WHERE queue_id = ? AND sequence = ?", [
-      queueId,
+      queue_id,
       ticketNumber,
     ]);
 
     const rows = await allQuery("SELECT * FROM ticket WHERE queue_id = ?", [
-      queueId,
+      queue_id,
     ]);
     res.json({
-      message: `Next ticket for ${queueId} is ${ticketNumber} for ${user}`,
+      message: `Next ticket for ${queue_id} is ${ticketNumber} for ${name}`,
       ticket,
       queue: rows,
     });
