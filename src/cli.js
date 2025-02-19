@@ -1,6 +1,5 @@
 import pkg from "enquirer";
 const { Select, Input } = pkg;
-import { SECTION_NAMES } from "./queueSystem.js";
 
 const BASE_URL = "http://localhost:3001";
 

@@ -62,6 +62,7 @@ class QueueSystem {
       ticket: ticketNumber,
       section: section,
       priority: isPriority,
+      created_at: new Date().toISOString(),
     };
 
     if (isPriority) {
@@ -112,21 +113,29 @@ class QueueSystem {
       return acc;
     }, {});
 
-    this.queue.forEach((item) => {
-      const { section } = item;
-      const sectionTime =
-        this.queue.filter((q) => q.section === section).indexOf(item) + 1;
-
-      sectionWaitTimes[section] += sectionTime;
+    this.history.forEach((ticket) => {
+      const { section, created_at, called_at, simulated_wait } = ticket;
+      let waitTime = 0;
+      if (simulated_wait !== undefined) {
+        waitTime = simulated_wait;
+      } else if (created_at && called_at) {
+        const createdAtDate = new Date(created_at);
+        const calledAtDate = new Date(called_at);
+        waitTime = (calledAtDate - createdAtDate) / (1000 * 60);
+      } else {
+        return;
+      }
+      sectionWaitTimes[section] += waitTime;
       sectionCount[section]++;
     });
 
-    const sectionAverages = {
-      ...SECTION_NAMES.reduce((acc, section) => {
-        acc[section] = sectionWaitTimes[section] / sectionCount[section];
-        return acc;
-      }, {}),
-    };
+    const sectionAverages = SECTION_NAMES.reduce((acc, section) => {
+      const count = sectionCount[section];
+      acc[section] = count
+        ? (sectionWaitTimes[section] / count).toFixed(2)
+        : "0.00";
+      return acc;
+    }, {});
 
     return sectionAverages;
   }

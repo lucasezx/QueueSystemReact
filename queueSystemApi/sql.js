@@ -5,6 +5,7 @@ const db = new sqlite3.Database("./database.db", (err) => {
   if (err) {
     console.error("Error opening database", err.message);
   } else {
+    db.run("PRAGMA foreign_keys = ON");
     console.log("Connected to the SQLite database");
   }
 });
@@ -23,6 +24,8 @@ export const createTables = () => {
         queue_id INTEGER NOT NULL,
         sequence INTEGER NOT NULL,
         is_priority BOOLEAN,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        called_at TIMESTAMP DEFAULT NULL,
         name TEXT NOT NULL,
         FOREIGN KEY (queue_id) REFERENCES queue(id),
         PRIMARY KEY (queue_id, sequence)
