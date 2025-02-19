@@ -4,13 +4,25 @@ const { Select, Input } = pkg;
 const BASE_URL = "http://localhost:3001";
 
 async function selectSection() {
+  const response = await fetch(`${BASE_URL}/queues`);
+  const data = await response.json();
+
+  if (!Array.isArray(data) || data.length === 0) {
+    console.error("No sections found or data is not an array");
+    return;
+  }
+
+  const sections = data.map((section) => section.title);
   const sectionPrompt = new Select({
     name: "section",
     message: "Select a section",
-    choices: [...SECTION_NAMES],
+    choices: sections,
   });
-  return await sectionPrompt.run();
+
+  const selectedTitle = await sectionPrompt.run();
+  return data.find((section) => section.title === selectedTitle).id;
 }
+
 
 async function mainMenu() {
   const mainMenuPrompt = new Select({
@@ -40,18 +52,15 @@ async function mainMenu() {
       message: "Enter your name",
     });
     const userName = await usernamePrompt.run();
-    if (!userName) {
-      console.log("User name is required to request a ticket");
-      return;
-    }
-    const section = await selectSection();
     const isPriority = answer === "Request Priority Ticket";
-
+    const section = await selectSection();
     try {
-      const response = await fetch(`${BASE_URL}/queues/${section}/tickets`, {
+      const response = await fetch(`${BASE_URL}/queues/${section}/tickets/call`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: userName, isPriority }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: userName, is_priority: isPriority }),
       });
 
       if (!response.ok) {
@@ -68,7 +77,7 @@ async function mainMenu() {
   if (answer === "Call Next Ticket") {
     const section = await selectSection();
     try {
-      const response = await fetch(`${BASE_URL}/queues/${section}/call`, {
+      const response = await fetch(`${BASE_URL}/queues/${section}/tickets/next`, {
         method: "POST",
       });
 
