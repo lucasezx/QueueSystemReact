@@ -3,7 +3,6 @@ import express from "express";
 import path from "path";
 import cors from "cors";
 import { createTables, runQuery, allQuery } from "./sql.js";
-import { create } from "domain";
 
 const app = express();
 const port = 3001;
